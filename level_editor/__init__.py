@@ -5,6 +5,7 @@ from .add_filename import MYADDON_OT_add_filename
 from .collider import OBJECT_PT_collider
 from .create_ico_sphere import MYADDON_OT_create_ico_sphere
 from .draw_collider import DrawCollider
+from .disabled import MYADDON_OT_add_disabled, OBJECT_PT_disabled
 from .export_scene import MYADDON_OT_export_scene
 from .file_name import OBJECT_PT_file_name
 from .my_menu import TOPBAR_MT_my_menu
@@ -31,9 +32,11 @@ classes = (
     MYADDON_OT_export_scene,
     MYADDON_OT_add_filename,
     MYADDON_OT_add_collider,
+    MYADDON_OT_add_disabled,
     TOPBAR_MT_my_menu,
     OBJECT_PT_file_name,
     OBJECT_PT_collider,
+    OBJECT_PT_disabled,
 )
 
 

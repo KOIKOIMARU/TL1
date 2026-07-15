@@ -149,6 +149,9 @@ class MYADDON_OT_export_scene(
             "scaling": (scale.x, scale.y, scale.z),
         }
 
+        if "disabled" in obj:
+            json_object["disabled"] = bool(obj["disabled"])
+
         if "file_name" in obj:
             json_object["file_name"] = obj["file_name"]
 
