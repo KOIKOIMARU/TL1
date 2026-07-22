@@ -132,7 +132,7 @@ class MYADDON_OT_export_scene(
         """JSON用の再帰関数"""
 
         json_object = {
-            "type": obj.type,
+            "type": obj["type"] if "type" in obj else obj.type,
             "name": obj.name,
         }
 

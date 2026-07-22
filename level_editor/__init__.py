@@ -9,6 +9,10 @@ from .disabled import MYADDON_OT_add_disabled, OBJECT_PT_disabled
 from .export_scene import MYADDON_OT_export_scene
 from .file_name import OBJECT_PT_file_name
 from .my_menu import TOPBAR_MT_my_menu
+from .spawn import (
+    MYADDON_OT_spawn_create_symbol,
+    MYADDON_OT_spawn_import_symbol,
+)
 from .stretch_vertex import MYADDON_OT_stretch_vertex
 
 
@@ -33,6 +37,8 @@ classes = (
     MYADDON_OT_add_filename,
     MYADDON_OT_add_collider,
     MYADDON_OT_add_disabled,
+    MYADDON_OT_spawn_import_symbol,
+    MYADDON_OT_spawn_create_symbol,
     TOPBAR_MT_my_menu,
     OBJECT_PT_file_name,
     OBJECT_PT_collider,
