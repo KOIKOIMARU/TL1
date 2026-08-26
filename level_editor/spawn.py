@@ -3,48 +3,68 @@ import os
 import bpy
 
 
-PROTOTYPE_OBJECT_NAME = "PrototypePlayerSpawn"
-PLAYER_SPAWN_OBJECT_NAME = "PlayerSpawn"
-PLAYER_SPAWN_TYPE = "PlayerSpawn"
+class SpawnNames:
+    """出現ポイントの種類ごとに異なる名前とモデルをまとめる。"""
+
+    PROTOTYPE = 0
+    INSTANCE = 1
+    FILENAME = 2
+
+    names = {
+        "Enemy": (
+            "PrototypeEnemySpawn",
+            "EnemySpawn",
+            "needle/needle.obj",
+        ),
+        "Player": (
+            "PrototypePlayerSpawn",
+            "PlayerSpawn",
+            "player/player.obj",
+        ),
+    }
 
 
 class MYADDON_OT_spawn_import_symbol(bpy.types.Operator):
-    """SpawnPointの複製元モデルを一度だけ読み込む。"""
+    """出現ポイント用モデルを初回だけ読み込む。"""
 
     bl_idname = "myaddon.myaddon_ot_spawn_import_symbol"
     bl_label = "出現ポイントシンボルImport"
     bl_description = "出現ポイントのシンボルをImportします"
 
-    prototype_object_name = PROTOTYPE_OBJECT_NAME
-    object_name = PLAYER_SPAWN_OBJECT_NAME
+    def load_obj(self, spawn_type):
+        if spawn_type not in SpawnNames.names:
+            self.report({'ERROR'}, f"未対応の出現ポイント種類です: {spawn_type}")
+            return False
 
-    def execute(self, context):
-        if bpy.data.objects.get(self.prototype_object_name) is not None:
-            return {"CANCELLED"}
+        prototype_name, instance_name, file_name = SpawnNames.names[spawn_type]
+        if bpy.data.objects.get(prototype_name) is not None:
+            return True
 
-        addon_directory = os.path.dirname(__file__)
-        full_path = os.path.join(addon_directory, "player", "player.obj")
+        full_path = os.path.join(os.path.dirname(__file__), file_name)
         if not os.path.isfile(full_path):
-            self.report({"ERROR"}, "SpawnPointモデルが見つかりません")
-            return {"CANCELLED"}
+            self.report({'ERROR'}, f"モデルファイルが見つかりません: {full_path}")
+            return False
 
         before_objects = set(bpy.data.objects)
-        bpy.ops.wm.obj_import(
-            "EXEC_DEFAULT",
+        result = bpy.ops.wm.obj_import(
+            'EXEC_DEFAULT',
             filepath=full_path,
-            display_type="THUMBNAIL",
-            forward_axis="Z",
-            up_axis="Y",
+            display_type='THUMBNAIL',
+            forward_axis='Z',
+            up_axis='Y',
         )
+        if 'FINISHED' not in result:
+            self.report({'ERROR'}, f"モデルの読み込みに失敗しました: {file_name}")
+            return False
 
-        imported_objects = [
-            obj for obj in bpy.data.objects if obj not in before_objects
-        ]
+        imported_objects = [obj for obj in bpy.data.objects if obj not in before_objects]
         if not imported_objects:
-            self.report({"ERROR"}, "SpawnPointモデルを読み込めませんでした")
-            return {"CANCELLED"}
+            self.report({'ERROR'}, f"読み込まれたオブジェクトがありません: {file_name}")
+            return False
 
-        prototype = context.active_object or imported_objects[0]
+        prototype = bpy.context.active_object or imported_objects[0]
+        bpy.context.view_layer.objects.active = prototype
+        prototype.select_set(True)
         bpy.ops.object.transform_apply(
             location=False,
             rotation=True,
@@ -53,48 +73,83 @@ class MYADDON_OT_spawn_import_symbol(bpy.types.Operator):
             isolate_users=False,
         )
 
-        prototype.name = self.prototype_object_name
-        prototype["type"] = PLAYER_SPAWN_TYPE
+        prototype.name = prototype_name
+        prototype["type"] = instance_name
+        prototype["file_name"] = file_name
 
-        # データは残し、通常のシーン出力には混ざらないよう非表示にする。
+        # データベースには残し、シーンから外して複製元としてだけ保持する。
         for collection in list(prototype.users_collection):
             collection.objects.unlink(prototype)
+        return True
 
-        return {"FINISHED"}
+    def execute(self, context):
+        for spawn_type in SpawnNames.names:
+            if not self.load_obj(spawn_type):
+                return {'CANCELLED'}
+        return {'FINISHED'}
 
 
 class MYADDON_OT_spawn_create_symbol(bpy.types.Operator):
-    """読込済みモデルを共有してSpawnPointをシーンへ配置する。"""
+    """指定種類の出現ポイントを作成して現在のシーンへ配置する。"""
 
     bl_idname = "myaddon.myaddon_ot_spawn_create_symbol"
     bl_label = "出現ポイントシンボルの作成"
     bl_description = "出現ポイントのシンボルを作成します"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {'REGISTER', 'UNDO'}
 
-    object_name = PLAYER_SPAWN_OBJECT_NAME
+    type: bpy.props.StringProperty(name="Type", default="Player")
 
     def execute(self, context):
-        spawn_object = bpy.data.objects.get(PROTOTYPE_OBJECT_NAME)
+        if self.type not in SpawnNames.names:
+            self.report({'ERROR'}, f"未対応の出現ポイント種類です: {self.type}")
+            return {'CANCELLED'}
+
+        prototype_name, instance_name, file_name = SpawnNames.names[self.type]
+        spawn_object = bpy.data.objects.get(prototype_name)
         if spawn_object is None:
-            result = bpy.ops.myaddon.myaddon_ot_spawn_import_symbol(
-                "EXEC_DEFAULT"
-            )
-            if "FINISHED" not in result:
-                self.report({"ERROR"}, "SpawnPointモデルを準備できませんでした")
-                return {"CANCELLED"}
-            spawn_object = bpy.data.objects.get(PROTOTYPE_OBJECT_NAME)
+            result = bpy.ops.myaddon.myaddon_ot_spawn_import_symbol('EXEC_DEFAULT')
+            if 'FINISHED' not in result:
+                return {'CANCELLED'}
+            spawn_object = bpy.data.objects.get(prototype_name)
 
         if spawn_object is None:
-            self.report({"ERROR"}, "SpawnPointモデルが見つかりません")
-            return {"CANCELLED"}
+            self.report({'ERROR'}, f"複製元を用意できませんでした: {prototype_name}")
+            return {'CANCELLED'}
 
-        bpy.ops.object.select_all(action="DESELECT")
+        bpy.ops.object.select_all(action='DESELECT')
+        obj = spawn_object.copy()
+        bpy.context.collection.objects.link(obj)
+        obj.name = instance_name
+        obj["type"] = instance_name
+        obj["file_name"] = file_name
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        return {'FINISHED'}
 
-        created_object = spawn_object.copy()
-        context.collection.objects.link(created_object)
-        created_object.name = self.object_name
-        created_object["type"] = PLAYER_SPAWN_TYPE
-        created_object.select_set(True)
-        context.view_layer.objects.active = created_object
 
-        return {"FINISHED"}
+class MYADDON_OT_spawn_create_player_symbol(bpy.types.Operator):
+    """プレイヤー出現ポイントを作成する。"""
+
+    bl_idname = "myaddon.myaddon_ot_spawn_create_player_symbol"
+    bl_label = "プレイヤー出現ポイントシンボルの作成"
+    bl_description = "プレイヤー出現ポイントのシンボルを作成します"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        return bpy.ops.myaddon.myaddon_ot_spawn_create_symbol(
+            'EXEC_DEFAULT', type="Player"
+        )
+
+
+class MYADDON_OT_spawn_create_enemy_symbol(bpy.types.Operator):
+    """敵出現ポイントを作成する。"""
+
+    bl_idname = "myaddon.myaddon_ot_spawn_create_enemy_symbol"
+    bl_label = "敵出現ポイントシンボルの作成"
+    bl_description = "敵出現ポイントのシンボルを作成します"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        return bpy.ops.myaddon.myaddon_ot_spawn_create_symbol(
+            'EXEC_DEFAULT', type="Enemy"
+        )

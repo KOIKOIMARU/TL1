@@ -10,6 +10,8 @@ from .export_scene import MYADDON_OT_export_scene
 from .file_name import OBJECT_PT_file_name
 from .my_menu import TOPBAR_MT_my_menu
 from .spawn import (
+    MYADDON_OT_spawn_create_enemy_symbol,
+    MYADDON_OT_spawn_create_player_symbol,
     MYADDON_OT_spawn_create_symbol,
     MYADDON_OT_spawn_import_symbol,
 )
@@ -39,6 +41,8 @@ classes = (
     MYADDON_OT_add_disabled,
     MYADDON_OT_spawn_import_symbol,
     MYADDON_OT_spawn_create_symbol,
+    MYADDON_OT_spawn_create_player_symbol,
+    MYADDON_OT_spawn_create_enemy_symbol,
     TOPBAR_MT_my_menu,
     OBJECT_PT_file_name,
     OBJECT_PT_collider,
